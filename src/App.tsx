@@ -264,34 +264,65 @@ export default function App() {
     }
 
     const pairs: KnockoutPair[] = [];
-    
-    // Logic: 1st G1 + 2nd G2, 1st G2 + 2nd G1, 1st G3 + 2nd G4, etc.
-    for (let i = 0; i < groups.length; i += 2) {
-      const g1 = groupResults[i];
-      const g2 = groupResults[i + 1];
+    const N = groups.length;
+    const step = N > 2 ? 2 : 1;
+    const visited = new Set<number>();
 
-      if (g1 && g2) {
-        const p1_1 = g1.qualifiers[0];
-        const p1_2 = g1.qualifiers[1];
-        const p2_1 = g2.qualifiers[0];
-        const p2_2 = g2.qualifiers[1];
+    // We want to group pairs that come from the same two groups together 
+    // so they play each other in a match (e.g., 1st G1+2nd G3 vs 1st G3+2nd G1)
+    for (let i = 0; i < N; i++) {
+      if (visited.has(i)) continue;
 
-        if (p1_1 && p2_2) {
-          pairs.push({
-            id: crypto.randomUUID(),
-            p1Id: p1_1.participantId,
-            p2Id: p2_2.participantId,
-            name: `${p1_1.name} / ${p2_2.name}`
-          });
+      const target = (i + step) % N;
+      
+      if (target !== i && !visited.has(target)) {
+        // Cross pair between Group i and Group target
+        const g1 = groupResults[i];
+        const g2 = groupResults[target];
+
+        if (g1 && g2) {
+          const p1_1 = g1.qualifiers[0];
+          const p1_2 = g1.qualifiers[1];
+          const p2_1 = g2.qualifiers[0];
+          const p2_2 = g2.qualifiers[1];
+
+          if (p1_1 && p2_2) {
+            pairs.push({
+              id: crypto.randomUUID(),
+              p1Id: p1_1.participantId,
+              p2Id: p2_2.participantId,
+              name: `${p1_1.name} / ${p2_2.name}`
+            });
+          }
+          if (p2_1 && p1_2) {
+            pairs.push({
+              id: crypto.randomUUID(),
+              p1Id: p2_1.participantId,
+              p2Id: p1_2.participantId,
+              name: `${p2_1.name} / ${p1_2.name}`
+            });
+          }
         }
-        if (p2_1 && p1_2) {
-          pairs.push({
-            id: crypto.randomUUID(),
-            p1Id: p2_1.participantId,
-            p2Id: p1_2.participantId,
-            name: `${p2_1.name} / ${p1_2.name}`
-          });
+        visited.add(i);
+        visited.add(target);
+      } else if (!visited.has(i)) {
+        // Leftover group (happens in odd N or cycles)
+        // We'll pair its 1st and 2nd with the next available or just with each other
+        // To follow "skip one", we can try to find the next skip
+        const g = groupResults[i];
+        if (g) {
+          const p1 = g.qualifiers[0];
+          const p2 = g.qualifiers[1];
+          if (p1 && p2) {
+            pairs.push({
+              id: crypto.randomUUID(),
+              p1Id: p1.participantId,
+              p2Id: p2.participantId,
+              name: `${p1.name} / ${p2.name}`
+            });
+          }
         }
+        visited.add(i);
       }
     }
 
@@ -299,7 +330,10 @@ export default function App() {
 
     // Initial knockout matches (Round of X)
     const initialMatches: KnockoutMatch[] = [];
-    const roundName = pairs.length === 16 ? 'oitavas' : pairs.length === 8 ? 'quartas' : pairs.length === 4 ? 'semi' : 'final';
+    let roundName: 'oitavas' | 'quartas' | 'semi' | 'final' = 'final';
+    if (pairs.length > 8) roundName = 'oitavas';
+    else if (pairs.length > 4) roundName = 'quartas';
+    else if (pairs.length > 2) roundName = 'semi';
     
     for (let i = 0; i < pairs.length; i += 2) {
       initialMatches.push({
@@ -366,7 +400,7 @@ export default function App() {
         });
       } else {
         // Create next round matches if they don't exist
-        const numNextMatches = currentRoundMatches.length / 2;
+        const numNextMatches = Math.ceil(currentRoundMatches.length / 2);
         for (let i = 0; i < numNextMatches; i++) {
           const id = `next-${nextRound}-${i}`;
           if (!finalUpdated.find(m => m.id === id)) {
@@ -524,7 +558,7 @@ export default function App() {
                       onChange={(e) => setNumGroups(Number(e.target.value))}
                       className="w-full px-4 py-3 rounded-xl border border-[#E5E7EB] focus:outline-none focus:ring-2 focus:ring-[#FF6321]"
                     >
-                      {[2, 4, 8, 16].map(n => (
+                      {Array.from({ length: 15 }, (_, i) => i + 2).map(n => (
                         <option key={n} value={n}>{n} Grupos</option>
                       ))}
                     </select>
