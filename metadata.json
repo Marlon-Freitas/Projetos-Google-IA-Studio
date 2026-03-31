@@ -1,0 +1,5 @@
+{
+  "name": "Gestor de Torneio Beach Tennis",
+  "description": "Aplicativo para gerenciar torneios de Beach Tennis com fase de grupos, sorteio, classificação por saldo de games e eliminatórias.",
+  "requestFramePermissions": []
+}
