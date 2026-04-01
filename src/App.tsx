@@ -90,55 +90,62 @@ export default function App() {
     }
 
     // Distribute participants
-    shuffled.forEach((p: Participant, idx: number) => {
-      newGroups[idx % numGroups].participantIds.push(p.id);
-    });
+    // Rule: If total is even and we have more than 4 per group on average,
+    // fill first groups with 4 and put all leftovers in the last group.
+    if (participants.length % 2 === 0 && participants.length > numGroups * 4) {
+      let currentIdx = 0;
+      for (let i = 0; i < numGroups - 1; i++) {
+        for (let j = 0; j < 4; j++) {
+          newGroups[i].participantIds.push(shuffled[currentIdx++].id);
+        }
+      }
+      while (currentIdx < shuffled.length) {
+        newGroups[numGroups - 1].participantIds.push(shuffled[currentIdx++].id);
+      }
+    } else {
+      shuffled.forEach((p: Participant, idx: number) => {
+        newGroups[idx % numGroups].participantIds.push(p.id);
+      });
+    }
 
     // Generate rotating partner (Americano) matches for each group
     newGroups.forEach(group => {
       const pIds = group.participantIds;
-      if (pIds.length < 4) return; // Need at least 4 for doubles
+      if (pIds.length < 4) return;
 
-      // Standard 4-player Americano: 3 matches
-      // (1,2) vs (3,4), (1,3) vs (2,4), (1,4) vs (2,3)
-      // For more than 4, we'll just do the first 3 combinations for simplicity 
-      // or implement a more robust rotation if needed.
-      // Let's assume groups of 4 as per standard practice.
-      
-      if (pIds.length === 4) {
-        newMatches.push({
-          id: crypto.randomUUID(),
-          groupId: group.id,
-          p1Id: pIds[0], p2Id: pIds[1],
-          p3Id: pIds[2], p4Id: pIds[3],
-          score1: 0, score2: 0, isCompleted: false
-        });
-        newMatches.push({
-          id: crypto.randomUUID(),
-          groupId: group.id,
-          p1Id: pIds[0], p2Id: pIds[2],
-          p3Id: pIds[1], p4Id: pIds[3],
-          score1: 0, score2: 0, isCompleted: false
-        });
-        newMatches.push({
-          id: crypto.randomUUID(),
-          groupId: group.id,
-          p1Id: pIds[0], p2Id: pIds[3],
-          p3Id: pIds[1], p4Id: pIds[2],
-          score1: 0, score2: 0, isCompleted: false
-        });
-      } else {
-        // Fallback for non-4 groups: just pair them up sequentially
-        for (let i = 0; i < pIds.length; i += 4) {
-          if (i + 3 < pIds.length) {
-            newMatches.push({
-              id: crypto.randomUUID(),
-              groupId: group.id,
-              p1Id: pIds[i], p2Id: pIds[i+1],
-              p3Id: pIds[i+2], p4Id: pIds[i+3],
-              score1: 0, score2: 0, isCompleted: false
-            });
-          }
+      // Generate all possible unique pairs (partnerships)
+      const pairs: [string, string][] = [];
+      for (let i = 0; i < pIds.length; i++) {
+        for (let j = i + 1; j < pIds.length; j++) {
+          pairs.push([pIds[i], pIds[j]]);
+        }
+      }
+
+      // Greedily pack pairs into matches to ensure "everyone plays with everyone" (Americano style)
+      const availablePairs = [...pairs];
+      const maxAttempts = 200;
+      let attempts = 0;
+
+      while (availablePairs.length >= 2 && attempts < maxAttempts) {
+        const pair1 = availablePairs.shift()!;
+        const pair2Idx = availablePairs.findIndex(p => 
+          p[0] !== pair1[0] && p[0] !== pair1[1] && 
+          p[1] !== pair1[0] && p[1] !== pair1[1]
+        );
+
+        if (pair2Idx !== -1) {
+          const pair2 = availablePairs.splice(pair2Idx, 1)[0];
+          newMatches.push({
+            id: crypto.randomUUID(),
+            groupId: group.id,
+            p1Id: pair1[0], p2Id: pair1[1],
+            p3Id: pair2[0], p4Id: pair2[1],
+            score1: 0, score2: 0, isCompleted: false
+          });
+          attempts = 0; // Reset attempts on success
+        } else {
+          availablePairs.push(pair1);
+          attempts++;
         }
       }
     });
