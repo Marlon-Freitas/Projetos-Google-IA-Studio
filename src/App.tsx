@@ -487,7 +487,7 @@ export default function App() {
               <Trophy className="text-white w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight">Beach tennis PCD</h1>
+              <h1 className="text-2xl font-bold tracking-tight">Beach tennis PCD - Reizinho</h1>
               <p className="text-xs text-[#6B7280] uppercase tracking-widest font-semibold">Gestor de Torneio</p>
             </div>
           </div>
